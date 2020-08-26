@@ -65,7 +65,6 @@ app.post('/register',(req,res)=>{
 		id:'125',
 		name:name,
 		email:email,
-		password:password,
 		entries:0,
 		joined:new Date()
 	})
