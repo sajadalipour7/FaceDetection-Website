@@ -25,11 +25,11 @@ class Signin extends React.Component{
                 password:this.state.signInPassword
             })
         }).then(response=>response.json())
-        .then(data=>{
-            
-                this.props.loadUser(data);
+        .then(user=>{
+            if(user.id){
+                this.props.loadUser(user);
                 this.props.onRouteChange('home');
-            
+            }
         })
         
     }
