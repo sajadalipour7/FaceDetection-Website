@@ -22,38 +22,62 @@ const app=express();
 app.use(bodyParser.json());
 app.use(cors());
 
-const database={
-	users:[
-		{
-			id:'123',
-			name:'John',
-			email:'john@gmail.com',
-			password:'cookies',
-			entries:0,
-			joined:new Date()
-		},
-		{
-			id:'124',
-			name:'Sally',
-			email:'sally@gmail.com',
-			password:'bananas',
-			entries:0,
-			joined:new Date()
-		}
-	],
-	// login:[
-	// 	{
-	// 		id:'987',
-	// 		hash:'',
-	// 		email:'john@gmail.com'
-	// 	}
-	// ]
-}
+// const database={
+// 	users:[
+// 		{
+// 			id:'123',
+// 			name:'John',
+// 			email:'john@gmail.com',
+// 			password:'cookies',
+// 			entries:0,
+// 			joined:new Date()
+// 		},
+// 		{
+// 			id:'124',
+// 			name:'Sally',
+// 			email:'sally@gmail.com',
+// 			password:'bananas',
+// 			entries:0,
+// 			joined:new Date()
+// 		}
+// 	],
+// 	// login:[
+// 	// 	{
+// 	// 		id:'987',
+// 	// 		hash:'',
+// 	// 		email:'john@gmail.com'
+// 	// 	}
+// 	// ]
+// }
 app.get('/',(req,res)=>{
 	res.send(database.users);
 })
 
 app.post('/signin',(req,res)=>{
+	/**
+	 * This way is synchrounos
+	 */
+	db.select('email','hash').from('login')
+	.where('email','=',req.body.email)
+	.then(data=>{
+		// console.log(data);
+		const isValid = bcrypt.compareSync(req.body.password,data[0].hash);
+		if(isValid){
+			return db.select('*').from('users')
+			.where('email','=',req.body.email)
+			.then(user=>{
+				res.json(user[0])
+			})
+			.catch(err=>res.status(400).json("unable to get user"));
+		}else{
+			res.status(400).json("wrong credentials!");
+		}
+		
+	})
+	.catch(err=>res.status(400).json('wrong credentials!'));
+	/**
+	 * This way is asynchronos
+	 */
 	// // Load hash from your password DB.
 	// const hsh="$2a$10$hWawU9Iu1pbW4GHBCX8uaeSFtzPNDJx4YP8b/fwdNQ.7se/gVopIK";
 	// bcrypt.compare("apples", hsh, function(err, res) {
@@ -63,20 +87,27 @@ app.post('/signin',(req,res)=>{
 	// bcrypt.compare("veggies", hsh, function(err, res) {
 	// 	console.log('first guess',res);
 	// });
-	if(req.body.email===database.users[0].email &&
-		req.body.password===database.users[0].password){
-			// res.json('Success');
-			res.json(database.users[0]);
-		}else{
-			res.status(400).json('Error logging in!');
-		}
+	// if(req.body.email===database.users[0].email &&
+	// 	req.body.password===database.users[0].password){
+	// 		// res.json('Success');
+	// 		res.json(database.users[0]);
+	// 	}else{
+	// 		res.status(400).json('Error logging in!');
+	// 	}
 })
 
 app.post('/register',(req,res)=>{
 	const {email,name,password}=req.body;
-	bcrypt.hash(password, null, null, function(err, hash) {
-		console.log(hash);
-	});
+	/**
+	 * Synchrounous way
+	 */
+	const hash=bcrypt.hashSync(password);
+	/**
+	 * Asynchronos way
+	 */
+	// bcrypt.hash(password, null, null, function(err, hash) {
+	// 	console.log(hash);
+	// });
 	// database.users.push({
 	// 	id:'125',
 	// 	name:name,
@@ -84,15 +115,29 @@ app.post('/register',(req,res)=>{
 	// 	entries:0,
 	// 	joined:new Date()
 	// })
-	db('users')
-		.returning('*')
-		.insert({
-		email:email,
-		name:name,
-		joined:new Date()
-	}).then(user=>{
-		res.json(user[0]);
+	db.transaction(trx=>{
+		trx.insert({
+			hash:hash,
+			email:email
+		})
+		.into('login')
+		.returning('email')
+		.then(loginEmail=>{
+			return trx('users')
+				.returning('*')
+				.insert({
+					email:loginEmail[0],
+					name:name,
+					joined:new Date()
+				})
+				.then(user=>{
+					res.json(user[0]);
+				})
+		})
+		.then(trx.commit)
+		.catch(trx.rollback)
 	})
+		
 	.catch(err=>res.status(400).json('unable to register'));
 });
 
