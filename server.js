@@ -10,10 +10,10 @@ const image=require('./controllers/image');
 const db=knex({
 	client:'pg',
 	connection:{
-		connectionnString:process.env.DATABASE_URL,
-		ssl:true,
+		connectionString:process.env.DATABASE_URL,
+		ssl:true
 	}
-})
+});
 
 // db.select('*').from('users')
 // .then(data=>{
